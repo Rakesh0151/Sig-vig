@@ -10,6 +10,7 @@ import { useVirtual } from 'react-virtual';
 import { DataGrid } from '@mui/x-data-grid';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 // Register ChartJS components
 ChartJS.register(
@@ -21,7 +22,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  ChartDataLabels // Register the datalabels plugin
 );
 
 const PrrChiAnalysis = () => {
