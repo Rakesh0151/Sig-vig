@@ -135,6 +135,11 @@ const PrrChiAnalysis = () => {
         throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
       }
       const data = await response.json();
+      // Debug: Log SDR values and count
+      console.log('API Response SDR values:', data.map(signal => signal.is_sdr));
+      console.log('API Response SDR count:', data.filter(signal => signal.is_sdr).length);
+      console.log('API Response Fatal values:', data.map(signal => signal.is_fatal));
+      console.log('API Response Fatal count:', data.filter(signal => signal.is_fatal).length);
       if (!Array.isArray(data)) {
         console.error('Invalid data format received:', data);
         throw new Error('Invalid data format received from server');
@@ -290,6 +295,7 @@ const PrrChiAnalysis = () => {
         cases: signal.cases || 0,
         isDME: Boolean(signal.is_dme),
         isFatal: Boolean(signal.is_fatal),
+        isSDR: Boolean(signal.is_sdr),
         caseIds: signal.case_ids || []
       }));
 
@@ -717,7 +723,7 @@ const PrrChiAnalysis = () => {
       imeCount: data.events.filter(e => e.isIME).length,
       tmeCount: data.events.filter(e => e.isTME).length,
       esiCount: data.events.filter(e => e.isESI).length,
-      sdrCount: data.sdrCount,
+      sdrCount: data.events.filter(e => e.isSDR).length,
       newCount: data.events.reduce((sum, e) => sum + (e.new || 0), 0),
       nowCount: data.events.reduce((sum, e) => sum + (e.now || 0), 0),
       previousCount: data.events.reduce((sum, e) => sum + (e.previous || 0), 0),
@@ -746,9 +752,13 @@ const PrrChiAnalysis = () => {
         events: data.events.filter(e => e.isESI),
         cases: data.events.filter(e => e.isESI).reduce((sum, e) => sum + (e.now || 0), 0)
       },
+      sdr: {
+        events: data.events.filter(e => e.isSDR),
+        cases: data.events.filter(e => e.isSDR).reduce((sum, e) => sum + (e.now || 0), 0)
+      },
       other: {
-        events: data.events.filter(e => !e.isDME && !e.isFatal && !e.isIME && !e.isTME && !e.isESI),
-        cases: data.events.filter(e => !e.isDME && !e.isFatal && !e.isIME && !e.isTME && !e.isESI)
+        events: data.events.filter(e => !e.isDME && !e.isFatal && !e.isIME && !e.isTME && !e.isESI && !e.isSDR),
+        cases: data.events.filter(e => !e.isDME && !e.isFatal && !e.isIME && !e.isTME && !e.isESI && !e.isSDR)
           .reduce((sum, e) => sum + (e.now || 0), 0)
       }
     };
@@ -1268,7 +1278,7 @@ const PrrChiAnalysis = () => {
 
               {/* Events List */}
               <div className="p-3 sm:p-4 space-y-2">
-                {['dme', 'fatal', 'ime', 'tme', 'esi', 'other'].map(group => (
+                {['dme', 'fatal', 'ime', 'tme', 'esi', 'sdr', 'other'].map(group => (
                   eventGroups[group].events.length > 0 && (
                     <div key={group} className="space-y-2">
                       <h4 
@@ -1519,8 +1529,11 @@ const PrrChiAnalysis = () => {
               <select
                 value={selectedDrug || ''}
                 onChange={(e) => setSelectedDrug(e.target.value)}
-                className="px-4 py-2 rounded-lg text-sm transition-all duration-200 appearance-none w-full specimen-font-medium"
-                style={{ 
+                className="px-4 py-2 rounded-lg text-sm transition-all duration-200 appearance-none specimen-font-medium"
+                style={{
+                  minWidth: '260px',
+                  maxWidth: '400px',
+                  width: '100%',
                   backgroundColor: cliniFinesseTheme.surface,
                   border: `1px solid ${cliniFinesseTheme.border}`,
                   color: cliniFinesseTheme.text,
@@ -1570,6 +1583,98 @@ const PrrChiAnalysis = () => {
       });
     }
     setViewMode(mode);
+  };
+
+  const maxBarValue = Math.max(
+    ...filteredData.slice(0, 20).map(r => Math.max(r.previous || 0, r.new || 0))
+  );
+  let dynamicMax;
+  if (maxBarValue < 4) {
+    dynamicMax = 4;
+  } else if (maxBarValue < 10) {
+    dynamicMax = Math.ceil(maxBarValue + 2);
+  } else if (maxBarValue < 50) {
+    dynamicMax = Math.ceil(maxBarValue + 5);
+  } else if (maxBarValue < 100) {
+    dynamicMax = Math.ceil(maxBarValue + 10);
+  } else {
+    dynamicMax = Math.ceil(maxBarValue + 20);
+  }
+
+  // Plugin to show full event name as tooltip on x-axis label hover
+  const eventLabelTooltipPlugin = {
+    id: 'eventLabelTooltip',
+    afterEvent: function(chart, args) {
+      const event = args.event;
+      if (event.type === 'mousemove') {
+        const xAxis = chart.scales.x;
+        if (!xAxis) return;
+        const mouseX = event.x;
+        let found = false;
+        for (let i = 0; i < xAxis.ticks.length; i++) {
+          const tick = xAxis.ticks[i];
+          const label = xAxis.getLabelForValue(tick.value);
+          const meta = xAxis._labelItems[i];
+          if (!meta) continue;
+          const { x, width } = meta;
+          if (mouseX >= x - width / 2 && mouseX <= x + width / 2) {
+            chart.canvas.title = label;
+            found = true;
+            break;
+          }
+        }
+        if (!found) chart.canvas.title = '';
+      }
+    }
+  };
+
+  // Sort filteredData before rendering rows
+  const sortedData = useMemo(() => {
+    if (!sortConfig.key) return filteredData;
+    const sorted = [...filteredData].sort((a, b) => {
+      if (typeof a[sortConfig.key] === 'number' && typeof b[sortConfig.key] === 'number') {
+        return sortConfig.direction === 'asc' ? a[sortConfig.key] - b[sortConfig.key] : b[sortConfig.key] - a[sortConfig.key];
+      }
+      if (typeof a[sortConfig.key] === 'string' && typeof b[sortConfig.key] === 'string') {
+        return sortConfig.direction === 'asc'
+          ? a[sortConfig.key].localeCompare(b[sortConfig.key])
+          : b[sortConfig.key].localeCompare(a[sortConfig.key]);
+      }
+      return 0;
+    });
+    return sorted;
+  }, [filteredData, sortConfig]);
+
+  // Add this function inside the PrrChiAnalysis component
+  const handleDownloadDrugExcel = async () => {
+    if (!selectedDrug || !file) {
+      alert('Please select a drug and upload a file first.');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    formData.append('drug_name_filter', selectedDrug);
+    try {
+      const response = await fetch('https://sig-vig-866002518023.us-central1.run.app/export-drug-specific-dlp-data', {
+        method: 'POST',
+        body: formData
+      });
+      if (!response.ok) {
+        throw new Error('Failed to download drug-specific Excel file');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `SigVig_Data_${selectedDrug}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (err) {
+      alert('Error downloading file: ' + err.message);
+    }
   };
 
   return (
@@ -1813,17 +1918,7 @@ const PrrChiAnalysis = () => {
                         </span>
                   </div>
                       <div className="flex items-center gap-4">
-                        <button
-                          onClick={handleResetFilters}
-                          className="px-4 py-2 rounded-lg text-sm transition-all duration-200 specimen-font-medium"
-                          style={{ 
-                            backgroundColor: cliniFinesseTheme.surfaceActive,
-                            color: cliniFinesseTheme.textSecondary,
-                            border: `1px solid ${cliniFinesseTheme.border}`
-                          }}
-                        >
-                          Reset Filters
-                        </button>
+                        {/* Remove the Reset Filters button from the table controls */}
                       </div>
                     </div>
 
@@ -1847,54 +1942,56 @@ const PrrChiAnalysis = () => {
                               zIndex: 1
                             }}
                           >
-                            <th className="w-[15%] px-4 py-4 font-semibold specimen-font" style={{ color: cliniFinesseTheme.primary }}>
+                            <th className="w-[15%] px-4 py-4 font-semibold specimen-font cursor-pointer" style={{ color: cliniFinesseTheme.primary }} onClick={() => handleSort('drug')}>
                               <div className="flex items-center gap-2 truncate">
                                 Drug
                                 {sortConfig.key === 'drug' && (
-                                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                                  <span style={{ color: cliniFinesseTheme.textSecondary, marginLeft: 4 }}>
                                     {sortConfig.direction === 'asc' ? '↑' : '↓'}
                                   </span>
                                 )}
                               </div>
                             </th>
-                            <th className="w-[20%] px-4 py-4 font-semibold specimen-font" style={{ color: cliniFinesseTheme.primary }}>
+                            <th className="w-[20%] px-4 py-4 font-semibold specimen-font cursor-pointer" style={{ color: cliniFinesseTheme.primary }} onClick={() => handleSort('event')}>
                               <div className="flex items-center gap-2 truncate">
                                 Event
                                 {sortConfig.key === 'event' && (
-                                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                                  <span style={{ color: cliniFinesseTheme.textSecondary, marginLeft: 4 }}>
                                     {sortConfig.direction === 'asc' ? '↑' : '↓'}
                                   </span>
                                 )}
                               </div>
                             </th>
-                            <th className="w-[10%] px-4 py-4 text-right font-semibold specimen-font">Current Cases</th>
-                            <th className="w-[10%] px-4 py-4 text-right font-semibold specimen-font">New Cases</th>
+                            <th className="w-[10%] px-4 py-4 text-right font-semibold specimen-font">Serious</th>
+                            <th className="w-[12%] px-4 py-4 text-right font-semibold specimen-font">Non-Serious</th>
                             <th className="w-[12%] px-4 py-4 text-right font-semibold specimen-font">Previous Cases</th>
-                            <th className="w-[11%] px-4 py-4 text-right font-semibold specimen-font">
+                            <th className="w-[10%] px-4 py-4 text-right font-semibold specimen-font">New Cases</th>
+                            <th className="w-[10%] px-4 py-4 text-right font-semibold specimen-font">Current Cases</th>
+                            <th className="w-[11%] px-4 py-4 text-right font-semibold specimen-font cursor-pointer" onClick={() => handleSort('prr')}>
                               <div className="flex items-center justify-end gap-2">
                                 PRR
                                 {sortConfig.key === 'prr' && (
-                                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                                  <span style={{ color: cliniFinesseTheme.textSecondary, marginLeft: 4 }}>
                                     {sortConfig.direction === 'asc' ? '↑' : '↓'}
                                   </span>
                                 )}
                               </div>
                             </th>
-                            <th className="w-[11%] px-4 py-4 text-right font-semibold specimen-font">
+                            <th className="w-[11%] px-4 py-4 text-right font-semibold specimen-font cursor-pointer" onClick={() => handleSort('ror')}>
                               <div className="flex items-center justify-end gap-2">
                                 ROR
                                 {sortConfig.key === 'ror' && (
-                                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                                  <span style={{ color: cliniFinesseTheme.textSecondary, marginLeft: 4 }}>
                                     {sortConfig.direction === 'asc' ? '↑' : '↓'}
                                   </span>
                                 )}
                               </div>
                             </th>
-                            <th className="w-[11%] px-4 py-4 text-right font-semibold specimen-font">
+                            <th className="w-[11%] px-4 py-4 text-right font-semibold specimen-font cursor-pointer" onClick={() => handleSort('chi')}>
                               <div className="flex items-center justify-end gap-2">
                                 Chi-Square
                                 {sortConfig.key === 'chi' && (
-                                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                                  <span style={{ color: cliniFinesseTheme.textSecondary, marginLeft: 4 }}>
                                     {sortConfig.direction === 'asc' ? '↑' : '↓'}
                                   </span>
                                 )}
@@ -1903,7 +2000,7 @@ const PrrChiAnalysis = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredData.map((signal, idx) => (
+                        {sortedData.map((signal, idx) => (
                             <motion.tr 
                               key={idx}
                               initial={{ opacity: 0, y: 20 }}
@@ -1921,18 +2018,24 @@ const PrrChiAnalysis = () => {
                                 </div>
                               </td>
                               <td className="px-4 py-4 specimen-font font-bold" style={{ color: cliniFinesseTheme.text }}>
-                                <div className="truncate" title={signal.event || '-'}>
+                                <div title={signal.event || '-'} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                                   {signal.event || '-'}
                                 </div>
                               </td>
                               <td className="px-4 py-4 text-right specimen-font-medium" style={{ color: cliniFinesseTheme.text }}>
-                                {signal.now !== undefined ? Number(signal.now).toFixed(0) : '-'}
+                                {signal.serious !== undefined ? Number(signal.serious).toFixed(0) : '-'}
+                              </td>
+                              <td className="px-4 py-4 text-right specimen-font-medium" style={{ color: cliniFinesseTheme.text }}>
+                                {signal.nonserious !== undefined ? Number(signal.nonserious).toFixed(0) : '-'}
+                              </td>
+                              <td className="px-4 py-4 text-right specimen-font-medium" style={{ color: cliniFinesseTheme.text }}>
+                                {signal.previous !== undefined ? Number(signal.previous).toFixed(0) : '-'}
                               </td>
                               <td className="px-4 py-4 text-right specimen-font-medium" style={{ color: cliniFinesseTheme.text }}>
                                 {signal.new !== undefined ? Number(signal.new).toFixed(0) : '-'}
                               </td>
                               <td className="px-4 py-4 text-right specimen-font-medium" style={{ color: cliniFinesseTheme.text }}>
-                                {signal.previous !== undefined ? Number(signal.previous).toFixed(0) : '-'}
+                                {signal.now !== undefined ? Number(signal.now).toFixed(0) : '-'}
                               </td>
                               <td 
                                 className="px-4 py-4 text-right specimen-font-medium"
@@ -1940,7 +2043,7 @@ const PrrChiAnalysis = () => {
                                   color: signal.prr >= 2 ? cliniFinesseTheme.metrics.prr : cliniFinesseTheme.text 
                                 }}
                               >
-                                {typeof signal.prr === 'number' ? Number(signal.prr).toFixed(2) : '-'}
+                                {typeof signal.prr === 'number' && isFinite(signal.prr) ? Number(signal.prr).toFixed(2) : '0.00'}
                               </td>
                               <td 
                                 className="px-4 py-4 text-right specimen-font-medium"
@@ -1948,7 +2051,7 @@ const PrrChiAnalysis = () => {
                                   color: signal.ror >= 2 ? cliniFinesseTheme.metrics.prr : cliniFinesseTheme.text 
                                 }}
                               >
-                                {typeof signal.ror === 'number' ? Number(signal.ror).toFixed(2) : '-'}
+                                {typeof signal.ror === 'number' && isFinite(signal.ror) ? Number(signal.ror).toFixed(2) : '0.00'}
                               </td>
                               <td 
                                 className="px-4 py-4 text-right specimen-font-medium"
@@ -1956,7 +2059,7 @@ const PrrChiAnalysis = () => {
                                   color: signal.chi >= 4 ? cliniFinesseTheme.metrics.chi : cliniFinesseTheme.text 
                                 }}
                               >
-                                {typeof signal.chi === 'number' ? Number(signal.chi).toFixed(2) : '-'}
+                                {typeof signal.chi === 'number' && isFinite(signal.chi) ? Number(signal.chi).toFixed(2) : '0.00'}
                               </td>
                             </motion.tr>
                         ))}
@@ -1984,7 +2087,7 @@ const PrrChiAnalysis = () => {
                   {/* Export Button */}
                   <div className="p-6 border-t flex justify-end" style={{ borderColor: cliniFinesseTheme.border }}>
                     <motion.button
-                      onClick={handleExport}
+                      onClick={selectedDrug && file ? handleDownloadDrugExcel : handleExport}
                       className="flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-200 specimen-font-medium"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -2057,7 +2160,7 @@ const PrrChiAnalysis = () => {
                             Case Trend Analysis
                           </h3>
                             </div>
-                        <div className="h-[220px] lg:h-[260px] xl:h-[280px] 2xl:h-[320px]">
+                        <div className="h-[260px] lg:h-[320px] xl:h-[360px] 2xl:h-[400px] p-6">
                           <Bar
                             data={{
                               labels: filteredData.slice(0, 20).map(r => r.event),
@@ -2091,11 +2194,10 @@ const PrrChiAnalysis = () => {
                                 tooltip: {
                                   ...chartOptions.plugins?.tooltip,
                                   callbacks: {
-                                    label: function(context) {
-                                      const value = context.raw;
-                                      const total = (filteredData[context.dataIndex]?.new || 0) + (filteredData[context.dataIndex]?.previous || 0);
-                                      const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
-                                      return `${context.dataset.label}: ${value} (${percentage}% of total)`;
+                                    ...chartOptions.plugins?.tooltip?.callbacks,
+                                    title: function(context) {
+                                      // Show full event name in tooltip
+                                      return context[0]?.label || '';
                                     }
                                   }
                                 },
@@ -2109,7 +2211,6 @@ const PrrChiAnalysis = () => {
                                   anchor: 'end',
                                   align: 'end',
                                   formatter: function(value, context) {
-                                    // Only show on top of the stack
                                     if (context.datasetIndex === 1) {
                                       const total = value + (filteredData[context.dataIndex]?.previous || 0);
                                       return total;
@@ -2124,6 +2225,7 @@ const PrrChiAnalysis = () => {
                                   ...chartOptions.scales.y,
                                   stacked: true,
                                   beginAtZero: true,
+                                  max: dynamicMax,
                                   title: {
                                     display: true,
                                     text: 'Number of Cases',
@@ -2137,37 +2239,24 @@ const PrrChiAnalysis = () => {
                                     display: true,
                                     text: 'Events',
                                     color: cliniFinesseTheme.textSecondary
-                                  }
-                                }
-                              },
-                              elements: {
-                                bar: {
-                                  borderWidth: 2,
-                                  borderSkipped: false,
-                                }
-                              },
-                              plugins: {
-                                ...chartOptions.plugins,
-                                datalabels: {
-                                  display: true,
-                                  color: cliniFinesseTheme.text,
-                                  font: {
-                                    weight: 'bold',
-                                    family: cliniFinesseTheme.fonts.primary
                                   },
-                                  anchor: 'end',
-                                  align: 'end',
-                                  formatter: function(value, context) {
-                                    if (context.datasetIndex === 1) {
-                                      const total = value + (filteredData[context.dataIndex]?.previous || 0);
-                                      return total;
+                                  ticks: {
+                                    color: cliniFinesseTheme.textSecondary,
+                                    font: {
+                                      size: 10,
+                                      family: cliniFinesseTheme.fonts.primary
+                                    },
+                                    maxRotation: 60,
+                                    minRotation: 60,
+                                    callback: function(value, index, values) {
+                                      const label = this.getLabelForValue(value);
+                                      return label.length > 12 ? label.slice(0, 12) + '…' : label;
                                     }
-                                    return '';
                                   }
                                 }
                               }
                             }}
-                            
+                            plugins={[eventLabelTooltipPlugin]}
                           />
                         </div>
                         {/* Summary Statistics */}
