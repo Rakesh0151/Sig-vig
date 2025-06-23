@@ -71,6 +71,7 @@ const PrrChiAnalysis = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
   const [expandedCard, setExpandedCard] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Enhanced dark theme configuration
   const cliniFinesseTheme = useMemo(() => ({
@@ -108,7 +109,7 @@ const PrrChiAnalysis = () => {
 
   // API call setup
   const { data: apiResponse, error: apiError, loading: apiLoading, refetch } = useApi({
-    url: 'https://sig-vig-866002518023.us-central1.run.app/calculate-dlp-signals',
+    url: 'https://signal-app-748522437054.us-central1.run.app/calculate-dlp-signals',
     method: 'post',
     body: sheetData,
     enabled: false, // Don't call automatically
@@ -127,7 +128,7 @@ const PrrChiAnalysis = () => {
     try {
       const formData = new FormData();
       formData.append('excel_file', file);
-      const response = await fetch('https://sig-vig-866002518023.us-central1.run.app/calculate-dlp-signals', {
+      const response = await fetch('https://signal-app-748522437054.us-central1.run.app/calculate-dlp-signals', {
         method: 'POST',
         body: formData
       });
@@ -210,7 +211,7 @@ const PrrChiAnalysis = () => {
       try {
         const formData = new FormData();
         formData.append('excel_file', file);
-        const response = await fetch('https://sig-vig-866002518023.us-central1.run.app/calculate-dlp-signals', {
+        const response = await fetch('https://signal-app-748522437054.us-central1.run.app/calculate-dlp-signals', {
           method: 'POST',
           body: formData
         });
@@ -650,6 +651,20 @@ const PrrChiAnalysis = () => {
     // Write file
     XLSX.writeFile(wb, filename);
   }, [filteredData]);
+
+  const handleExportWithLoading = async () => {
+    setIsExporting(true);
+    try {
+      if (selectedDrug && file) {
+        await handleDownloadDrugExcel();
+      } else {
+        await handleExport();
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -1422,8 +1437,51 @@ const PrrChiAnalysis = () => {
 
   // 2. Create a SignalTable component below the main component
   const columns = [
-    { field: 'drug', headerName: 'Drug', flex: 1, minWidth: 120 },
-    { field: 'event', headerName: 'Event', flex: 2, minWidth: 200, renderCell: (params) => <strong>{params.value}</strong> },
+    { 
+      field: 'drug', 
+      headerName: 'Drug', 
+      flex: 1.5, 
+      minWidth: 180,
+      sortable: true,
+      filterable: true,
+      editable: false,
+      hideable: false,
+      valueGetter: (params) => params.value || '',
+      renderCell: (params) => (
+        <div style={{
+          width: '100%',
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'break-word',
+          lineHeight: 1.2,
+          padding: '8px 4px'
+        }}>
+          {params.value}
+        </div>
+      )
+    },
+    { 
+      field: 'event', 
+      headerName: 'Event', 
+      flex: 2, 
+      minWidth: 200,
+      sortable: true,
+      filterable: true,
+      editable: false,
+      hideable: false,
+      valueGetter: (params) => params.value || '',
+      renderCell: (params) => (
+        <div style={{
+          width: '100%',
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'break-word',
+          lineHeight: 1.2,
+          padding: '8px 4px',
+          fontWeight: 'bold'
+        }}>
+          {params.value}
+        </div>
+      )
+    },
     { field: 'prr', headerName: 'PRR', type: 'number', flex: 1, minWidth: 80, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
     { field: 'ror', headerName: 'ROR', type: 'number', flex: 1, minWidth: 80, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
     { field: 'chi', headerName: 'Chi-Square', type: 'number', flex: 1, minWidth: 100, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
@@ -1431,23 +1489,56 @@ const PrrChiAnalysis = () => {
     { field: 'nonserious', headerName: 'Non-Serious', type: 'number', flex: 1, minWidth: 110 },
     { field: 'now', headerName: 'Current Cases', type: 'number', flex: 1, minWidth: 100 },
     { field: 'new', headerName: 'New Cases', type: 'number', flex: 1, minWidth: 100 },
-    { field: 'previous', headerName: 'Previous Cases', type: 'number', flex: 1, minWidth: 120 },
+    { field: 'previous', headerName: 'Previous Cases', type: 'number', flex: 1, minWidth: 120 }
   ];
 
   function SignalTable({ rows }) {
     return (
-      <div style={{ height: 600, width: '100%' }}>
+      <div style={{ height: 600, width: '100%', overflow: 'hidden' }}>
         <DataGrid
           rows={rows.map((row, i) => ({ id: i, ...row }))}
           columns={columns}
           pageSize={20}
           rowsPerPageOptions={[10, 20, 50, 100]}
           disableSelectionOnClick
+          autoHeight
+          getRowHeight={() => 'auto'}
+          getEstimatedRowHeight={() => 100}
           sx={{
-            '& .MuiDataGrid-columnHeaders': { backgroundColor: '#222' },
-            '& .MuiDataGrid-cell': { color: '#fff', backgroundColor: '#181818' },
-            '& .MuiDataGrid-row': { borderBottom: '1px solid #333' },
-            '& .MuiDataGrid-footerContainer': { backgroundColor: '#222', color: '#fff' },
+            '& .MuiDataGrid-root': {
+              backgroundColor: '#181818',
+              border: 'none'
+            },
+            '& .MuiDataGrid-columnHeaders': { 
+              backgroundColor: '#222',
+              minHeight: '48px !important',
+              maxHeight: '48px !important',
+              lineHeight: '48px !important'
+            },
+            '& .MuiDataGrid-cell': { 
+              color: '#fff', 
+              backgroundColor: '#181818',
+              padding: '0 !important',
+              overflow: 'visible !important'
+            },
+            '& .MuiDataGrid-row': { 
+              borderBottom: '1px solid #333',
+              minHeight: '48px !important'
+            },
+            '& .MuiDataGrid-footerContainer': { 
+              backgroundColor: '#222', 
+              color: '#fff' 
+            },
+            '& .MuiDataGrid-virtualScroller': {
+              minHeight: '400px'
+            },
+            '& .MuiDataGrid-cell--textLeft': {
+              padding: '0 !important'
+            },
+            '& .MuiDataGrid-cellContent': {
+              whiteSpace: 'normal',
+              lineHeight: '1.2'
+            }
           }}
         />
       </div>
@@ -1586,19 +1677,27 @@ const PrrChiAnalysis = () => {
   };
 
   const maxBarValue = Math.max(
-    ...filteredData.slice(0, 20).map(r => Math.max(r.previous || 0, r.new || 0))
+    ...filteredData
+      .sort((a, b) => (b.now || 0) - (a.now || 0))
+      .slice(0, 20)
+      .map(r => (r.previous || 0) + (r.new || 0))
   );
+
   let dynamicMax;
-  if (maxBarValue < 4) {
-    dynamicMax = 4;
-  } else if (maxBarValue < 10) {
-    dynamicMax = Math.ceil(maxBarValue + 2);
-  } else if (maxBarValue < 50) {
-    dynamicMax = Math.ceil(maxBarValue + 5);
-  } else if (maxBarValue < 100) {
-    dynamicMax = Math.ceil(maxBarValue + 10);
+  if (maxBarValue <= 5) {
+    dynamicMax = maxBarValue + 2;
+  } else if (maxBarValue <= 10) {
+    dynamicMax = maxBarValue + 3;
+  } else if (maxBarValue <= 20) {
+    dynamicMax = maxBarValue + 5;
+  } else if (maxBarValue <= 50) {
+    dynamicMax = maxBarValue + 10;
+  } else if (maxBarValue <= 100) {
+    dynamicMax = maxBarValue + 15;
+  } else if (maxBarValue <= 500) {
+    dynamicMax = maxBarValue + 25;
   } else {
-    dynamicMax = Math.ceil(maxBarValue + 20);
+    dynamicMax = maxBarValue + Math.ceil(maxBarValue * 0.1); // Add 10% padding for large values
   }
 
   // Plugin to show full event name as tooltip on x-axis label hover
@@ -1654,14 +1753,17 @@ const PrrChiAnalysis = () => {
     const formData = new FormData();
     formData.append('excel_file', file);
     formData.append('drug_name_filter', selectedDrug);
+    
     try {
       const response = await fetch('https://sig-vig-866002518023.us-central1.run.app/export-drug-specific-dlp-data', {
         method: 'POST',
         body: formData
       });
+      
       if (!response.ok) {
         throw new Error('Failed to download drug-specific Excel file');
       }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1674,6 +1776,7 @@ const PrrChiAnalysis = () => {
       a.remove();
     } catch (err) {
       alert('Error downloading file: ' + err.message);
+      throw err; // Re-throw to be caught by the loading handler
     }
   };
 
@@ -1906,20 +2009,48 @@ const PrrChiAnalysis = () => {
                   >
                     {/* Table Header Controls */}
                     <div 
-                      className="px-6 py-4 border-b flex items-center justify-between flex-wrap gap-4"
+                      className="px-6 py-4 border-b flex items-center justify-between"
                       style={{ borderColor: cliniFinesseTheme.border }}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold specimen-font" style={{ color: cliniFinesseTheme.text }}>
                           Analysis Results
                         </h3>
-                        <span className="text-sm specimen-font-medium" style={{ color: cliniFinesseTheme.textSecondary }}>
+                        <span 
+                          className="text-sm specimen-font-medium px-3 py-1 rounded-full"
+                          style={{ 
+                            backgroundColor: `${cliniFinesseTheme.primary}15`,
+                            color: cliniFinesseTheme.textSecondary 
+                          }}
+                        >
                           {filteredData.length} entries
                         </span>
-                  </div>
-                      <div className="flex items-center gap-4">
-                        {/* Remove the Reset Filters button from the table controls */}
                       </div>
+                      <motion.button
+                        onClick={handleExportWithLoading}
+                        disabled={isExporting}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 specimen-font-medium"
+                        whileHover={{ scale: isExporting ? 1 : 1.02 }}
+                        style={{
+                          backgroundColor: cliniFinesseTheme.primary,
+                          color: '#ffffff',
+                          boxShadow: `0 4px 16px ${cliniFinesseTheme.primary}40`,
+                          cursor: isExporting ? 'not-allowed' : 'pointer',
+                          minWidth: '140px',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {isExporting ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 00.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Export to Excel
+                          </>
+                        )}
+                      </motion.button>
                     </div>
 
                     {/* Table Container */}
@@ -2084,26 +2215,7 @@ const PrrChiAnalysis = () => {
                   </div>
                   </div>
 
-                  {/* Export Button */}
-                  <div className="p-6 border-t flex justify-end" style={{ borderColor: cliniFinesseTheme.border }}>
-                    <motion.button
-                      onClick={selectedDrug && file ? handleDownloadDrugExcel : handleExport}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-200 specimen-font-medium"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ scale: 1.02 }}
-                      style={{
-                        backgroundColor: cliniFinesseTheme.primary,
-                        color: '#ffffff',
-                        boxShadow: `0 4px 16px ${cliniFinesseTheme.primary}40`
-                      }}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 00.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Export to Excel
-                    </motion.button>
-                  </div>
+                  {/* Remove Export Button Section */}
                 </div>
               ) : viewMode === 'card' ? (
                 <>
@@ -2155,19 +2267,28 @@ const PrrChiAnalysis = () => {
                           boxShadow: `0 4px 12px ${cliniFinesseTheme.shadowLight}`
                         }}
                       >
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex flex-col gap-2 mb-4">
                           <h3 className="text-lg font-semibold" style={{ color: cliniFinesseTheme.text }}>
                             Case Trend Analysis
                           </h3>
-                            </div>
+                          <p className="text-sm specimen-font-medium" style={{ color: cliniFinesseTheme.textSecondary }}>
+                            Interactive visualization of the top 20 events. Hover over bars to view detailed case information.
+                          </p>
+                        </div>
                         <div className="h-[260px] lg:h-[320px] xl:h-[360px] 2xl:h-[400px] p-6">
                           <Bar
                             data={{
-                              labels: filteredData.slice(0, 20).map(r => r.event),
+                              labels: filteredData
+                                .sort((a, b) => (b.now || 0) - (a.now || 0))
+                                .slice(0, 20)
+                                .map(r => r.event),
                               datasets: [
                                 {
                                   label: 'Previous Cases',
-                                  data: filteredData.slice(0, 20).map(r => r.previous),
+                                  data: filteredData
+                                    .sort((a, b) => (b.now || 0) - (a.now || 0))
+                                    .slice(0, 20)
+                                    .map(r => r.previous),
                                   backgroundColor: cliniFinesseTheme.metrics.cases + '80',
                                   borderColor: cliniFinesseTheme.metrics.cases,
                                   borderWidth: 1,
@@ -2177,7 +2298,10 @@ const PrrChiAnalysis = () => {
                                 },
                                 {
                                   label: 'New Cases',
-                                  data: filteredData.slice(0, 20).map(r => r.new),
+                                  data: filteredData
+                                    .sort((a, b) => (b.now || 0) - (a.now || 0))
+                                    .slice(0, 20)
+                                    .map(r => r.new),
                                   backgroundColor: cliniFinesseTheme.metrics.chi + '80',
                                   borderColor: cliniFinesseTheme.metrics.chi,
                                   borderWidth: 1,
@@ -2226,6 +2350,12 @@ const PrrChiAnalysis = () => {
                                   stacked: true,
                                   beginAtZero: true,
                                   max: dynamicMax,
+                                  ticks: {
+                                    stepSize: Math.ceil(maxBarValue / 10), // Create about 10 tick marks
+                                    callback: function(value) {
+                                      return Math.floor(value); // Show only integer values
+                                    }
+                                  },
                                   title: {
                                     display: true,
                                     text: 'Number of Cases',
