@@ -156,15 +156,15 @@ const Login = () => {
             }}
           >
             {/* Header */}
-            <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="flex items-center justify-center gap-1 mb-6">
               <img src={logo} alt="Logo" className="w-10 h-10 object-contain" />
               <div className="flex flex-col items-start">
-                <div className="flex items-center specimen-font gap-2">
+                <div className="flex items-center specimen-font">
                   <span className="text-3xl font-bold" style={{ color: cliniFinesseTheme.secondary }}>
-                    SIG
+                    Sig
                   </span>
                   <span className="text-3xl font-bold" style={{ color: cliniFinesseTheme.primary }}>
-                    VIG
+                    Vig
                   </span>
                 </div>
                 <span className="text-xs specimen-font-medium tracking-wide mt-1" style={{ color: cliniFinesseTheme.textSecondary }}>

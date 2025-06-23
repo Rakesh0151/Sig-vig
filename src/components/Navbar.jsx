@@ -145,26 +145,26 @@ const Navbar = () => {
       >
         {/* Logo - Enhanced with company logo and Specimen font */}
         <motion.div 
-          className="flex items-center gap-1 sm:gap-2 flex-shrink-0 cursor-pointer"
+          className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 cursor-pointer"
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           onClick={() => navigate('/')}
         >
-          <img src={logo} alt="Logo" className="w-8 h-8 object-contain mr-1" />
+          <img src={logo} alt="Logo" className="w-8 h-8 object-contain mr-0.5" />
           <div className="flex flex-col">
             <div className="flex items-center specimen-font">
               <span 
                 className="text-xl sm:text-2xl font-bold"
                 style={{ color: colorPalette.secondary }}
               >
-                SIG
+                Sig
               </span>
               <span 
                 className="text-xl sm:text-2xl font-bold"
                 style={{ color: colorPalette.primary }}
               >
-                VIG
+                Vig
               </span>
             </div>
             <span 
