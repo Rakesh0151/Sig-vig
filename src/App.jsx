@@ -10,7 +10,8 @@ import ResetPassword from './components/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import PrrChiAnalysis from './pages/PrrChiAnalysis';
 import EbgmAnalysis from './pages/EbgmAnalysis';
-import { ProtectedRoute } from './context/ProtectedRoute';
+import AdminDashboard from './pages/AdminDashboard';
+import { ProtectedRoute, AdminRoute } from './context/ProtectedRoute';
 
 // Create a PublicRoute component for authentication pages
 const PublicRoute = ({ children }) => {
@@ -86,6 +87,14 @@ const AppContent = () => {
             <ProtectedRoute>
               <EbgmAnalysis />
             </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin-dashboard" 
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
           } 
         />
         <Route path="*" element={<Navigate to="/" replace />} />

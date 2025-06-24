@@ -42,12 +42,14 @@ const Login = () => {
       await refetch();
 
       if (data) {
-        localStorage.setItem("Access-Token", data.access);
+        localStorage.setItem("Access-Token", data.token);
         console.log(data);
 
         login({
-          username: formData.email,
-          token: data.access,
+          username: data.user.username,
+          token: data.token,
+          userRole: data.user.user_role,
+          userId: data.user.id
         });
 
         setFlashMessages([{ category: 'success', message: 'Login successful!' }]);
