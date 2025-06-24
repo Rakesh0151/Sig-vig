@@ -652,13 +652,44 @@ const PrrChiAnalysis = () => {
     XLSX.writeFile(wb, filename);
   }, [filteredData]);
 
+  const handleDownloadAllDrugsExcel = async () => {
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    
+    try {
+      const response = await fetch('https://signal-app-748522437054.us-central1.run.app/export-all-drugs-dlp-data', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download all drugs Excel file');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      // Change the extension to .gz since it's a gzip file
+      a.download = `SigVig_All_Drugs_Data.xlsx.gz`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (err) {
+      alert('Error downloading file: ' + err.message);
+      throw err;
+    }
+  };
+
   const handleExportWithLoading = async () => {
     setIsExporting(true);
     try {
       if (selectedDrug && file) {
         await handleDownloadDrugExcel();
-      } else {
-        await handleExport();
+      } else if (file) {
+        await handleDownloadAllDrugsExcel();
       }
     } finally {
       setIsExporting(false);

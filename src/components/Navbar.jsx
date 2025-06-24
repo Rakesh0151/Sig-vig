@@ -5,18 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/logo.png';
 
-// Memoize static menu items
-const userMenuItems = [
-  {
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-    label: 'Profile',
-    action: () => navigate('/')
-  }
-];
+// Helper function to extract name from email
+const getNameFromEmail = (email) => {
+  if (!email) return '';
+  return email.split('@')[0];
+};
 
 // Memoize UserMenuButton component
 const UserMenuButton = memo(({ user, isOpen, onClick, colorPalette, theme }) => (
@@ -48,7 +41,7 @@ const UserMenuButton = memo(({ user, isOpen, onClick, colorPalette, theme }) => 
           textShadow: '0 1px 2px rgba(0,0,0,0.2)'
         }}
       >
-        {user.username?.charAt(0).toUpperCase()}
+        {getNameFromEmail(user?.username)?.charAt(0).toUpperCase()}
       </span>
     </div>
     <div className="hidden lg:flex flex-col min-w-0">
@@ -56,7 +49,7 @@ const UserMenuButton = memo(({ user, isOpen, onClick, colorPalette, theme }) => 
         className="text-sm font-medium truncate specimen-font-medium"
         style={{ color: colorPalette.text }}
       >
-        {user.username}
+        {getNameFromEmail(user?.username)}
       </span>
     </div>
     <motion.svg 
@@ -80,6 +73,19 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+
+  // Define menu items inside the component to have access to navigate
+  const menuItems = useMemo(() => [
+    {
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      ),
+      label: 'Profile',
+      action: () => navigate('/')
+    }
+  ], [navigate]);
 
   // Memoize color palette
   const colorPalette = useMemo(() => ({
@@ -204,7 +210,7 @@ const Navbar = () => {
                     }}
                   >
                     <div className="p-2">
-                      {userMenuItems.map((item, index) => (
+                      {menuItems.map((item, index) => (
                         <motion.button
                           key={item.label}
                           onClick={() => {
@@ -246,7 +252,7 @@ const Navbar = () => {
                         }}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: userMenuItems.length * 0.05 }}
+                        transition={{ delay: menuItems.length * 0.05 }}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -376,7 +382,7 @@ const Navbar = () => {
                           textShadow: '0 1px 2px rgba(0,0,0,0.2)'
                         }}
                       >
-                        {user.username?.charAt(0).toUpperCase()}
+                        {getNameFromEmail(user?.username)?.charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex flex-col min-w-0">
@@ -384,7 +390,7 @@ const Navbar = () => {
                         className="text-sm font-medium truncate specimen-font-medium"
                         style={{ color: colorPalette.text }}
                       >
-                        {user.username}
+                        {getNameFromEmail(user?.username)}
                       </span>
                       <span 
                         className="text-xs specimen-font-medium"
@@ -398,7 +404,7 @@ const Navbar = () => {
 
                 {/* Mobile User Menu Items */}
                 <div className="space-y-1">
-                  {userMenuItems.map((item, index) => (
+                  {menuItems.map((item, index) => (
                     <motion.button
                       key={item.label}
                       initial={{ opacity: 0, y: 20 }}

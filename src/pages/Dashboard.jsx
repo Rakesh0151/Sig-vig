@@ -3,6 +3,12 @@ import { useTheme } from '../components/ThemeProvider';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+// Helper function to extract name from email
+const getNameFromEmail = (email) => {
+  if (!email) return '';
+  return email.split('@')[0];
+};
+
 const Dashboard = () => {
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -65,7 +71,7 @@ const Dashboard = () => {
               className="text-3xl sm:text-4xl md:text-5xl font-bold specimen-font mb-4"
               style={{ color: cliniFinesseTheme.text }}
             >
-              Welcome back, {user?.username}
+              Welcome back, {getNameFromEmail(user?.username)}
             </h1>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 mb-3">
               <div 
