@@ -1,4 +1,5 @@
 // src/context/ProtectedRoute.js
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
@@ -38,5 +39,19 @@ export const ProtectedRoute = ({ children }) => {
   }
 
   // If authenticated or accessKey is valid, allow access
+  return children;
+};
+
+export const AdminRoute = ({ children }) => {
+  const { user, isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.userRole !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
