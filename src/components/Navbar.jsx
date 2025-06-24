@@ -74,36 +74,6 @@ const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
 
-  // Define menu items inside the component to have access to navigate
-  const menuItems = useMemo(() => [
-    {
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      ),
-      label: 'Profile',
-      action: () => navigate('/')
-    }
-  ], [navigate]);
-
-  // Memoize color palette
-  const colorPalette = useMemo(() => ({
-    primary: '#57c1ef',
-    secondary: '#ee3739',
-    accent: '#4A90E2',
-    background: theme === 'dark' ? '#1a1a1a' : '#f8f9fa',
-    surface: theme === 'dark' ? '#2d2d2d' : '#ffffff',
-    surfaceVariant: theme === 'dark' ? '#3d3d3d' : '#f5f5f5',
-    text: theme === 'dark' ? '#ffffff' : '#2c3e50',
-    textSecondary: theme === 'dark' ? '#b0b0b0' : '#6c757d',
-    border: theme === 'dark' ? '#404040' : '#e1e5e9',
-    shadow: theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)',
-    gradient: theme === 'dark' 
-      ? 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)'
-      : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)'
-  }), [theme]);
-
   // Memoize user menu items
   const userMenuItems = useMemo(() => {
     const items = [
@@ -133,6 +103,23 @@ const Navbar = () => {
 
     return items;
   }, [navigate, user?.userRole]);
+
+  // Memoize color palette
+  const colorPalette = useMemo(() => ({
+    primary: '#57c1ef',
+    secondary: '#ee3739',
+    accent: '#4A90E2',
+    background: theme === 'dark' ? '#1a1a1a' : '#f8f9fa',
+    surface: theme === 'dark' ? '#2d2d2d' : '#ffffff',
+    surfaceVariant: theme === 'dark' ? '#3d3d3d' : '#f5f5f5',
+    text: theme === 'dark' ? '#ffffff' : '#2c3e50',
+    textSecondary: theme === 'dark' ? '#b0b0b0' : '#6c757d',
+    border: theme === 'dark' ? '#404040' : '#e1e5e9',
+    shadow: theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)',
+    gradient: theme === 'dark' 
+      ? 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)'
+      : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)'
+  }), [theme]);
 
   // Memoize handlers
   const handleLogout = useMemo(() => async () => {
@@ -240,7 +227,7 @@ const Navbar = () => {
                     }}
                   >
                     <div className="p-2">
-                      {menuItems.map((item, index) => (
+                      {userMenuItems.map((item, index) => (
                         <motion.button
                           key={item.label}
                           onClick={() => {
@@ -282,7 +269,7 @@ const Navbar = () => {
                         }}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: menuItems.length * 0.05 }}
+                        transition={{ delay: userMenuItems.length * 0.05 }}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -434,7 +421,7 @@ const Navbar = () => {
 
                 {/* Mobile User Menu Items */}
                 <div className="space-y-1">
-                  {menuItems.map((item, index) => (
+                  {userMenuItems.map((item, index) => (
                     <motion.button
                       key={item.label}
                       initial={{ opacity: 0, y: 20 }}
