@@ -135,6 +135,31 @@ export const useAdminApi = () => {
     }
   }, [clearMessages, getAuthHeaders]);
 
+  const deleteUser = useCallback(async (userId) => {
+    setLoading(true);
+    clearMessages();
+    
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DELETE_USER(userId)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error(ERROR_MESSAGES.DELETE_USER);
+      }
+
+      setSuccessMessage(SUCCESS_MESSAGES.USER_DELETED);
+      return true;
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      setError(err.message || ERROR_MESSAGES.DELETE_USER);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [clearMessages, getAuthHeaders]);
+
   return {
     loading,
     error,
@@ -143,6 +168,7 @@ export const useAdminApi = () => {
     fetchUsers,
     updateUser,
     unblockUser,
-    createUser
+    createUser,
+    deleteUser
   };
 }; 

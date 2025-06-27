@@ -6,6 +6,7 @@ export const API_CONFIG = {
     CREATE_USER: '/admin/createuser',
     UPDATE_USER: (userId) => `/admin/users/${userId}`,
     UNBLOCK_USER: (userId) => `/admin/users/${userId}/unlock`,
+    DELETE_USER: (userId) => `/admin/users/${userId}`
   }
 };
 
@@ -96,7 +97,8 @@ export const ROLE_COLORS = {
 export const SUCCESS_MESSAGES = {
   USER_CREATED: 'User created successfully!',
   USER_UPDATED: 'User updated successfully!',
-  USER_UNBLOCKED: 'User unblocked successfully!'
+  USER_UNBLOCKED: 'User unblocked successfully!',
+  USER_DELETED: 'User deleted successfully!'
 };
 
 // Error Messages
@@ -105,6 +107,7 @@ export const ERROR_MESSAGES = {
   UPDATE_USER: 'Failed to update user. Please try again.',
   UNBLOCK_USER: 'Failed to unblock user. Please try again.',
   CREATE_USER: 'Failed to create user. Please try again.',
+  DELETE_USER: 'Failed to delete user. Please try again.',
   ACCESS_DENIED: 'You do not have access to this feature. Showing demo data for reference. Contact your administrator for access.'
 };
 

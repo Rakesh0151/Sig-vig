@@ -66,12 +66,76 @@ const UserMenuButton = memo(({ user, isOpen, onClick, colorPalette, theme }) => 
   </motion.button>
 ));
 
+// Confirmation Modal Component
+const ConfirmationModal = memo(({ isOpen, onClose, onConfirm, colorPalette }) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+          style={{ backgroundColor: colorPalette.background }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-center mb-6">
+            <h2 
+              className="text-xl font-bold specimen-font-bold mb-2"
+              style={{ color: colorPalette.text }}
+            >
+              Confirm Logout
+            </h2>
+            <p 
+              className="text-sm"
+              style={{ color: colorPalette.textSecondary }}
+            >
+              Are you sure you want to log out?
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 rounded-xl border transition-colors hover:bg-opacity-80"
+              style={{
+                backgroundColor: colorPalette.surface,
+                borderColor: `${colorPalette.textSecondary}20`,
+                color: colorPalette.textSecondary
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 px-4 py-3 rounded-xl font-medium specimen-font-medium transition-colors"
+              style={{ backgroundColor: colorPalette.secondary, color: '#ffffff' }}
+            >
+              Logout
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+});
+
 const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const userMenuRef = useRef(null);
 
   // Memoize user menu items
@@ -121,14 +185,20 @@ const Navbar = () => {
       : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)'
   }), [theme]);
 
-  // Memoize handlers
+  // Update handleLogout to show confirmation first
   const handleLogout = useMemo(() => async () => {
+    setIsLogoutModalOpen(true);
+  }, []);
+
+  const confirmLogout = async () => {
     await logout();
     navigate('/login');
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen(false);
-  }, [logout, navigate]);
+    setIsLogoutModalOpen(false);
+  };
 
+  // Memoize handlers
   const toggleMobileMenu = useMemo(() => () => {
     setIsMobileMenuOpen(prev => !prev);
     setIsUserMenuOpen(false);
@@ -258,24 +328,20 @@ const Navbar = () => {
                       
                       <motion.button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 hover:shadow-sm specimen-font-medium"
-                        style={{ 
-                          color: colorPalette.secondary,
-                          backgroundColor: 'transparent'
-                        }}
-                        whileHover={{ 
-                          backgroundColor: `${colorPalette.secondary}10`,
-                          x: 4
-                        }}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: userMenuItems.length * 0.05 }}
+                        className="w-full px-4 py-2 rounded-xl text-sm font-medium specimen-font-medium transition-colors flex items-center gap-2"
+                        style={{ backgroundColor: colorPalette.secondary, color: '#ffffff' }}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
                         Logout
                       </motion.button>
+                      <div 
+                        className="text-xs text-center mt-2 opacity-70"
+                        style={{ color: colorPalette.textSecondary }}
+                      >
+                        Version 0.101
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -510,6 +576,14 @@ const Navbar = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* Logout confirmation modal */}
+      <ConfirmationModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={confirmLogout}
+        colorPalette={colorPalette}
+      />
     </>
   );
 };
