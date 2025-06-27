@@ -337,10 +337,10 @@ const Navbar = () => {
                         Logout
                       </motion.button>
                       <div 
-                        className="text-xs text-center mt-2 opacity-70"
-                        style={{ color: colorPalette.textSecondary }}
-                      >
-                        Version 0.101
+                                className="text-xs text-center mt-2 opacity-70"
+        style={{ color: colorPalette.textSecondary }}
+      >
+        Version 1.0.0
                       </div>
                     </div>
                   </motion.div>
