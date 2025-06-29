@@ -12,8 +12,7 @@ const Login = () => {
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
- 
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [flashMessages, setFlashMessages] = useState([]);
   const [activeFeature, setActiveFeature] = useState(0);
   const navigate = useNavigate();
@@ -21,7 +20,7 @@ const Login = () => {
   const { login } = useAuth();
 
   const { data, error, loading, refetch } = useApi({
-    url: "https://signal-app-748522437054.us-central1.run.app//login",
+    url: "https://signal-app-748522437054.us-central1.run.app/login",
     method: "post",
     body: formData,
     headers: { "Content-Type": "application/json" },
@@ -36,6 +35,13 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isSubmitting || loading) {
+      return;
+    }
+
+    setIsSubmitting(true);
     setFlashMessages([]);
 
     try {
@@ -62,6 +68,8 @@ const Login = () => {
     } catch (err) {
       console.error("Error in login:", err);
       setFlashMessages([{ category: 'danger', message: 'Login failed. Please check your credentials.' }]);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -318,14 +326,14 @@ const Login = () => {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isSubmitting}
                 className="w-full py-3 px-4 rounded-md text-sm specimen-font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed text-white"
                 style={{
-                  backgroundColor: loading ? cliniFinesseTheme.textSecondary : cliniFinesseTheme.primary,
-                  boxShadow: loading ? 'none' : `0 4px 12px ${cliniFinesseTheme.primary}20`
+                  backgroundColor: (loading || isSubmitting) ? cliniFinesseTheme.textSecondary : cliniFinesseTheme.primary,
+                  boxShadow: (loading || isSubmitting) ? 'none' : `0 4px 12px ${cliniFinesseTheme.primary}20`
                 }}
               >
-                {loading ? (
+                {(loading || isSubmitting) ? (
                   <div className="flex items-center justify-center gap-2">
                     <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

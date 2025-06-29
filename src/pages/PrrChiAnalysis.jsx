@@ -11,6 +11,8 @@ import { DataGrid } from '@mui/x-data-grid';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { useNavigate } from 'react-router-dom';
+import { useNavigationPrompt } from '../hooks/useNavigationPrompt';
 
 // Register ChartJS components
 ChartJS.register(
@@ -26,6 +28,61 @@ ChartJS.register(
   ChartDataLabels // Register the datalabels plugin
 );
 
+// Add ErrorDialog component at the top of the file
+const ErrorDialog = ({ isOpen, onClose, message, colorPalette }) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+          style={{ backgroundColor: colorPalette.background }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-center mb-6">
+            <div className="mb-4">
+              <svg className="w-12 h-12 mx-auto" fill="none" stroke={colorPalette.secondary} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 
+              className="text-xl font-bold specimen-font-bold mb-2"
+              style={{ color: colorPalette.text }}
+            >
+              Error
+            </h2>
+            <p 
+              className="text-sm"
+              style={{ color: colorPalette.textSecondary }}
+            >
+              {message}
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-3 rounded-xl font-medium specimen-font-medium transition-colors"
+            style={{ backgroundColor: colorPalette.secondary, color: '#ffffff' }}
+          >
+            OK
+          </button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 const PrrChiAnalysis = () => {
   const { theme } = useTheme();
   const [file, setFile] = useState(null);
@@ -35,6 +92,14 @@ const PrrChiAnalysis = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [sheetData, setSheetData] = useState(null);
+  
+  // Add state for navigation confirmation
+  const [showNavigationDialog, setShowNavigationDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+  const navigate = useNavigate();
+
+  // Use the navigation prompt hook
+  const { showDialog, onConfirm, onCancel } = useNavigationPrompt(results?.topSignals?.length > 0);
   
   // Updated state variables for enhanced features
   const [analysisType, setAnalysisType] = useState('prr');
@@ -116,6 +181,10 @@ const PrrChiAnalysis = () => {
     queryKey: ['analysis', selectedSheet]
   });
 
+  // Add error state
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showError, setShowError] = useState(false);
+
   // Handle file upload
   const handleFileUpload = useCallback(async (event) => {
     const file = event.target.files?.[0];
@@ -132,8 +201,19 @@ const PrrChiAnalysis = () => {
         method: 'POST',
         body: formData
       });
+      
       if (!response.ok) {
-        throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => null);
+        let errorMessage = 'Invalid Excel file: Please ensure the file contains two sheets named "allocation" and "Line_listings".';
+        
+        if (errorData && errorData.message) {
+          errorMessage = errorData.message;
+        }
+        
+        setErrorMessage(errorMessage);
+        setShowError(true);
+        setFile(null);
+        throw new Error(errorMessage);
       }
       const data = await response.json();
       // Debug: Log SDR values and count
@@ -163,7 +243,8 @@ const PrrChiAnalysis = () => {
         isTME: Boolean(signal.is_tme),
         isESI: Boolean(signal.is_esi),
         isSDR: Boolean(signal.is_sdr),
-        caseIds: Array.isArray(signal.case_ids) ? signal.case_ids : []
+        caseIds: Array.isArray(signal.case_ids) ? signal.case_ids : [],
+        fatalTerm: signal.fatal_term || signal.event_term || '' // Add fatal term from API
       }));
       const drugs = [...new Set(processedData.filter(row => row.drug !== 'Unknown Drug').map(row => row.drug))];
       setUniqueDrugs(drugs);
@@ -181,8 +262,9 @@ const PrrChiAnalysis = () => {
       });
     } catch (error) {
       console.error('Error processing data:', error);
-      alert(`Error processing data: ${error.message}. Please check the console for more details.`);
-      setFile(null); // Reset to step 1 on error
+      setErrorMessage(error.message || 'An error occurred while processing the file.');
+      setShowError(true);
+      setFile(null);
     } finally {
       setIsLoading(false);
     }
@@ -237,7 +319,8 @@ const PrrChiAnalysis = () => {
           isTME: Boolean(signal.is_tme),
           isESI: Boolean(signal.is_esi),
           isSDR: Boolean(signal.is_sdr),
-          caseIds: Array.isArray(signal.case_ids) ? signal.case_ids : []
+          caseIds: Array.isArray(signal.case_ids) ? signal.case_ids : [],
+          fatalTerm: signal.fatal_term || signal.event_term || '' // Add fatal term from API
         }));
         const drugs = [...new Set(processedData.filter(row => row.drug !== 'Unknown Drug').map(row => row.drug))];
         setUniqueDrugs(drugs);
@@ -297,7 +380,8 @@ const PrrChiAnalysis = () => {
         isDME: Boolean(signal.is_dme),
         isFatal: Boolean(signal.is_fatal),
         isSDR: Boolean(signal.is_sdr),
-        caseIds: signal.case_ids || []
+        caseIds: signal.case_ids || [],
+        fatalTerm: signal.fatal_term || signal.event_term || '' // Add fatal term from API
       }));
 
       // Extract unique drugs
@@ -1467,63 +1551,94 @@ const PrrChiAnalysis = () => {
   });
 
   // 2. Create a SignalTable component below the main component
-  const columns = [
-    { 
-      field: 'drug', 
-      headerName: 'Drug', 
-      flex: 1.5, 
-      minWidth: 180,
-      sortable: true,
-      filterable: true,
-      editable: false,
-      hideable: false,
-      valueGetter: (params) => params.value || '',
-      renderCell: (params) => (
-        <div style={{
-          width: '100%',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'break-word',
-          lineHeight: 1.2,
-          padding: '8px 4px'
-        }}>
-          {params.value}
-        </div>
-      )
-    },
-    { 
-      field: 'event', 
-      headerName: 'Event', 
-      flex: 2, 
-      minWidth: 200,
-      sortable: true,
-      filterable: true,
-      editable: false,
-      hideable: false,
-      valueGetter: (params) => params.value || '',
-      renderCell: (params) => (
-        <div style={{
-          width: '100%',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'break-word',
-          lineHeight: 1.2,
-          padding: '8px 4px',
-          fontWeight: 'bold'
-        }}>
-          {params.value}
-        </div>
-      )
-    },
-    { field: 'prr', headerName: 'PRR', type: 'number', flex: 1, minWidth: 80, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
-    { field: 'ror', headerName: 'ROR', type: 'number', flex: 1, minWidth: 80, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
-    { field: 'chi', headerName: 'Chi-Square', type: 'number', flex: 1, minWidth: 100, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
-    { field: 'serious', headerName: 'Serious', type: 'number', flex: 1, minWidth: 90 },
-    { field: 'nonserious', headerName: 'Non-Serious', type: 'number', flex: 1, minWidth: 110 },
-    { field: 'now', headerName: 'Current Cases', type: 'number', flex: 1, minWidth: 100 },
-    { field: 'new', headerName: 'New Cases', type: 'number', flex: 1, minWidth: 100 },
-    { field: 'previous', headerName: 'Previous Cases', type: 'number', flex: 1, minWidth: 120 }
-  ];
+  const getColumns = () => {
+    const baseColumns = [
+      { 
+        field: 'drug', 
+        headerName: 'Drug', 
+        flex: 1.5, 
+        minWidth: 180,
+        sortable: true,
+        filterable: true,
+        editable: false,
+        hideable: false,
+        valueGetter: (params) => params.value || '',
+        renderCell: (params) => (
+          <div style={{
+            width: '100%',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
+            lineHeight: 1.2,
+            padding: '8px 4px'
+          }}>
+            {params.value}
+          </div>
+        )
+      },
+      { 
+        field: 'event', 
+        headerName: 'Event', 
+        flex: 2, 
+        minWidth: 200,
+        sortable: true,
+        filterable: true,
+        editable: false,
+        hideable: false,
+        valueGetter: (params) => params.value || '',
+        renderCell: (params) => (
+          <div style={{
+            width: '100%',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
+            lineHeight: 1.2,
+            padding: '8px 4px',
+            fontWeight: 'bold'
+          }}>
+            {params.value}
+          </div>
+        )
+      },
+      { field: 'prr', headerName: 'PRR', type: 'number', flex: 1, minWidth: 80, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
+      { field: 'ror', headerName: 'ROR', type: 'number', flex: 1, minWidth: 80, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
+      { field: 'chi', headerName: 'Chi-Square', type: 'number', flex: 1, minWidth: 100, valueFormatter: ({ value }) => value?.toFixed ? value.toFixed(2) : value },
+      { field: 'serious', headerName: 'Serious', type: 'number', flex: 1, minWidth: 90 },
+      { field: 'nonserious', headerName: 'Non-Serious', type: 'number', flex: 1, minWidth: 110 },
+      { field: 'now', headerName: 'Current Cases', type: 'number', flex: 1, minWidth: 100 },
+      { field: 'new', headerName: 'New Cases', type: 'number', flex: 1, minWidth: 100 },
+      { field: 'previous', headerName: 'Previous Cases', type: 'number', flex: 1, minWidth: 120 }
+    ];
+
+    // Add Fatal Term column only for fatal signals
+    if (filterType === 'fatal') {
+      baseColumns.splice(2, 0, { // Insert after Event column
+        field: 'fatalTerm', 
+        headerName: 'Fatal Term', 
+        flex: 2, 
+        minWidth: 200,
+        sortable: true,
+        filterable: true,
+        editable: false,
+        valueGetter: (params) => params.value || params.row.event || '', // Fallback to event if no fatal term
+        renderCell: (params) => (
+          <div style={{
+            width: '100%',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
+            lineHeight: 1.2,
+            padding: '8px 4px',
+            color: cliniFinesseTheme.metrics.cases // Use the cases color for emphasis
+          }}>
+            {params.value}
+          </div>
+        )
+      });
+    }
+
+    return baseColumns;
+  };
 
   function SignalTable({ rows }) {
+    const columns = getColumns();
     return (
       <div style={{ height: 600, width: '100%', overflow: 'hidden' }}>
         <DataGrid
@@ -1597,9 +1712,9 @@ const PrrChiAnalysis = () => {
                   { id: 'all', label: `All (${headerCounts.all})` },
                   { id: 'sdr', label: `SDR (${headerCounts.sdr})` },
                   { id: 'dme', label: `DME (${headerCounts.dme})` },
-                  { id: 'fatal', label: `Fatal (${headerCounts.fatal})` },
                   { id: 'ime', label: `IME (${headerCounts.ime})` },
-                  { id: 'tme', label: `TME (${headerCounts.tme})` }
+                  { id: 'tme', label: `TME (${headerCounts.tme})` },
+                  { id: 'fatal', label: `Fatal (${headerCounts.fatal})` }
                 ]
             ).map(tab => (
               <button
@@ -1811,15 +1926,156 @@ const PrrChiAnalysis = () => {
     }
   };
 
+  // Add confirmation dialog component
+  const NavigationConfirmDialog = ({ isOpen, onClose, onConfirm, colorPalette }) => {
+    if (!isOpen) return null;
+
   return (
-    <div 
-      className="min-h-screen pt-20 pb-12 px-4 sm:px-6 lg:px-8 transition-all duration-300"
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
+            style={{ backgroundColor: colorPalette.background }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-6">
+              <h2 
+                className="text-xl font-bold specimen-font-bold mb-2"
+                style={{ color: colorPalette.text }}
+              >
+                Confirm Navigation
+              </h2>
+              <p 
+                className="text-sm"
+                style={{ color: colorPalette.textSecondary }}
+              >
+                You have unsaved analysis data. Are you sure you want to leave this page? Your data will be lost.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-3 rounded-xl border transition-colors hover:bg-opacity-80"
       style={{ 
-        backgroundColor: cliniFinesseTheme.background,
-        color: cliniFinesseTheme.text,
-        fontFamily: cliniFinesseTheme.fonts.primary
-      }}
-    >
+                  backgroundColor: colorPalette.surface,
+                  borderColor: `${colorPalette.textSecondary}20`,
+                  color: colorPalette.textSecondary
+                }}
+              >
+                Stay
+              </button>
+              <button
+                onClick={onConfirm}
+                className="flex-1 px-4 py-3 rounded-xl font-medium specimen-font-medium transition-colors"
+                style={{ backgroundColor: colorPalette.secondary, color: '#ffffff' }}
+              >
+                Leave
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
+
+  // Add navigation confirmation handlers
+  const handleNavigate = (to) => {
+    if (results?.topSignals?.length > 0) {
+      setPendingNavigation(() => () => navigate(to));
+      setShowNavigationDialog(true);
+    } else {
+      navigate(to);
+    }
+  };
+
+  const handleConfirmNavigation = () => {
+    setShowNavigationDialog(false);
+    if (pendingNavigation) {
+      pendingNavigation();
+      setPendingNavigation(null);
+    }
+  };
+
+  // Add beforeunload event handler
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (results?.topSignals?.length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [results?.topSignals?.length]);
+
+  // Add event listener for checking unsaved data
+  useEffect(() => {
+    const handleCheckUnsavedData = (event) => {
+      const hasUnsavedData = results?.topSignals?.length > 0;
+      event.detail.callback(hasUnsavedData);
+    };
+
+    window.addEventListener('checkUnsavedData', handleCheckUnsavedData);
+    return () => window.removeEventListener('checkUnsavedData', handleCheckUnsavedData);
+  }, [results?.topSignals?.length]);
+
+  return (
+    <>
+      <ErrorDialog
+        isOpen={showError}
+        onClose={() => setShowError(false)}
+        message={errorMessage}
+        colorPalette={cliniFinesseTheme}
+      />
+      
+      {/* Navigation Confirmation Dialog */}
+      <NavigationConfirmDialog
+        isOpen={showDialog}
+        onClose={onCancel}
+        onConfirm={onConfirm}
+        colorPalette={{
+          background: theme === 'dark' ? '#1a1a1a' : '#f8f9fa',
+          text: theme === 'dark' ? '#ffffff' : '#2c3e50',
+          textSecondary: theme === 'dark' ? '#b0b0b0' : '#6c757d',
+          surface: theme === 'dark' ? '#2d2d2d' : '#ffffff',
+          border: theme === 'dark' ? '#404040' : '#e1e5e9',
+          secondary: '#ee3739'
+        }}
+      />
+
+      {/* Rest of your existing JSX */}
+      <div 
+        className="min-h-screen transition-colors duration-200 pt-24 pb-8 sm:pt-28 md:pt-32"
+        style={{ backgroundColor: cliniFinesseTheme.background }}
+      >
+        {/* Add the navigation confirmation dialog */}
+        <NavigationConfirmDialog
+          isOpen={showNavigationDialog}
+          onClose={() => setShowNavigationDialog(false)}
+          onConfirm={handleConfirmNavigation}
+          colorPalette={{
+            background: theme === 'dark' ? '#1a1a1a' : '#f8f9fa',
+            text: theme === 'dark' ? '#ffffff' : '#2c3e50',
+            textSecondary: theme === 'dark' ? '#b0b0b0' : '#6c757d',
+            surface: theme === 'dark' ? '#2d2d2d' : '#ffffff',
+            border: theme === 'dark' ? '#404040' : '#e1e5e9',
+            secondary: '#ee3739'
+          }}
+        />
+        
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -2588,6 +2844,7 @@ const PrrChiAnalysis = () => {
         </AnimatePresence>
       </motion.div>
     </div>
+    </>
   );
 };
 

@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo, memo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, memo, useCallback } from 'react';
 import { useTheme, themeConfig } from './ThemeProvider';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/logo.png';
 
@@ -129,13 +129,79 @@ const ConfirmationModal = memo(({ isOpen, onClose, onConfirm, colorPalette }) =>
   );
 });
 
+// Navigation Confirmation Dialog Component
+const NavigationConfirmDialog = memo(({ isOpen, onClose, onConfirm, colorPalette }) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+          style={{ backgroundColor: colorPalette.background }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-center mb-6">
+            <h2 
+              className="text-xl font-bold specimen-font-bold mb-2"
+              style={{ color: colorPalette.text }}
+            >
+              Unsaved Changes
+            </h2>
+            <p 
+              className="text-sm"
+              style={{ color: colorPalette.textSecondary }}
+            >
+              You have unsaved changes. Are you sure you want to leave this page?
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 rounded-xl border transition-colors hover:bg-opacity-80"
+              style={{
+                backgroundColor: colorPalette.surface,
+                borderColor: `${colorPalette.textSecondary}20`,
+                color: colorPalette.textSecondary
+              }}
+            >
+              Stay
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 px-4 py-3 rounded-xl font-medium specimen-font-medium transition-colors"
+              style={{ backgroundColor: colorPalette.secondary, color: '#ffffff' }}
+            >
+              Leave
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+});
+
 const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [showNavigationDialog, setShowNavigationDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
   const userMenuRef = useRef(null);
 
   // Memoize user menu items
@@ -148,7 +214,7 @@ const Navbar = () => {
           </svg>
         ),
         label: 'Profile',
-        action: () => navigate('/')
+        to: '/'
       }
     ];
 
@@ -161,7 +227,7 @@ const Navbar = () => {
           </svg>
         ),
         label: 'Admin Dashboard',
-        action: () => navigate('/admin-dashboard')
+        to: '/admin-dashboard'
       });
     }
 
@@ -185,8 +251,37 @@ const Navbar = () => {
       : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)'
   }), [theme]);
 
-  // Update handleLogout to show confirmation first
-  const handleLogout = useMemo(() => async () => {
+  // Function to check if we can navigate
+  const checkNavigation = useCallback((to) => {
+    if (location.pathname === '/prr-chi') {
+      const event = new CustomEvent('checkUnsavedData', {
+        detail: {
+          callback: (hasUnsavedData) => {
+            if (hasUnsavedData) {
+              setPendingNavigation(() => () => {
+                navigate(to);
+                setIsMobileMenuOpen(false);
+                setIsUserMenuOpen(false);
+              });
+              setShowNavigationDialog(true);
+            } else {
+              navigate(to);
+              setIsMobileMenuOpen(false);
+              setIsUserMenuOpen(false);
+            }
+          }
+        }
+      });
+      window.dispatchEvent(event);
+    } else {
+      navigate(to);
+      setIsMobileMenuOpen(false);
+      setIsUserMenuOpen(false);
+    }
+  }, [location.pathname, navigate]);
+
+  // Handle logout separately from navigation
+  const handleLogout = useCallback(() => {
     setIsLogoutModalOpen(true);
   }, []);
 
@@ -198,17 +293,21 @@ const Navbar = () => {
     setIsLogoutModalOpen(false);
   };
 
-  // Memoize handlers
-  const toggleMobileMenu = useMemo(() => () => {
+  // Update navigation handlers
+  const handleNavigate = useCallback((to) => {
+    checkNavigation(to);
+  }, [checkNavigation]);
+
+  // Update menu handlers to not use checkNavigation
+  const toggleMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(prev => !prev);
-    setIsUserMenuOpen(false);
   }, []);
 
-  const toggleUserMenu = useMemo(() => () => {
+  const toggleUserMenu = useCallback(() => {
     setIsUserMenuOpen(prev => !prev);
   }, []);
 
-  // Optimize click outside handler
+  // Update click outside handler to not use checkNavigation
   useEffect(() => {
     if (!isUserMenuOpen) return;
 
@@ -222,9 +321,23 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isUserMenuOpen]);
 
+  const handleConfirmNavigation = () => {
+    setShowNavigationDialog(false);
+    if (pendingNavigation) {
+      pendingNavigation();
+      setPendingNavigation(null);
+    }
+  };
+
   return (
     <>
-
+      <NavigationConfirmDialog
+        isOpen={showNavigationDialog}
+        onClose={() => setShowNavigationDialog(false)}
+        onConfirm={handleConfirmNavigation}
+        colorPalette={colorPalette}
+      />
+      
       <motion.nav 
         initial={{ y: -100 }}
         animate={{ y: 0 }}
@@ -242,7 +355,7 @@ const Navbar = () => {
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          onClick={() => navigate('/')}
+          onClick={() => handleNavigate('/')}
         >
           <img src={logo} alt="Logo" className="w-8 h-8 object-contain mr-0.5" />
           <div className="flex flex-col">
@@ -301,8 +414,9 @@ const Navbar = () => {
                         <motion.button
                           key={item.label}
                           onClick={() => {
-                            item.action();
-                            setIsUserMenuOpen(false);
+                            if (item.to) {
+                              checkNavigation(item.to);
+                            }
                           }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 hover:shadow-sm specimen-font-medium"
                           style={{ 
@@ -337,10 +451,10 @@ const Navbar = () => {
                         Logout
                       </motion.button>
                       <div 
-                                className="text-xs text-center mt-2 opacity-70"
-        style={{ color: colorPalette.textSecondary }}
-      >
-        Version 1.0.0
+                        className="text-xs text-center mt-2 opacity-70"
+                        style={{ color: colorPalette.textSecondary }}
+                      >
+                        Version 1.0.0
                       </div>
                     </div>
                   </motion.div>
@@ -384,7 +498,7 @@ const Navbar = () => {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={toggleMobileMenu}
+          onClick={() => toggleMobileMenu()}
           className="md:hidden p-2 rounded-xl transition-all duration-200 hover:shadow-lg"
           style={{ 
             backgroundColor: colorPalette.surface,
@@ -496,8 +610,12 @@ const Navbar = () => {
                       whileHover={{ scale: 1.02, x: 4 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => {
-                        item.action();
-                        setIsMobileMenuOpen(false);
+                        if (item.action) {
+                          checkNavigation(() => {
+                            item.action();
+                            setIsMobileMenuOpen(false);
+                          });
+                        }
                       }}
                       className="w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 specimen-font-medium"
                       style={{ 
