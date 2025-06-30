@@ -14,6 +14,13 @@ const ResetPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [flashMessages, setFlashMessages] = useState([]);
+  const [passwordValidation, setPasswordValidation] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useTheme();
@@ -32,17 +39,45 @@ const ResetPassword = () => {
     inputBackground: theme === 'dark' ? '#3a3a3a' : '#ffffff',
     inputBorder: theme === 'dark' ? '#525252' : '#cbd5e1',
     surface: theme === 'dark' ? '#3a3a3a' : '#ffffff',
+    success: theme === 'dark' ? '#4ade80' : '#166534',
+    error: theme === 'dark' ? '#f87171' : '#dc2626',
+  };
+
+  const validatePassword = (password) => {
+    const validations = {
+      length: password.length >= 9 && password.length <= 12,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[!@#$%^&*(),.?":{}|&gt;&lt;]/.test(password)
+    };
+    setPasswordValidation(validations);
+    return Object.values(validations).every(Boolean);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === 'new_password') {
+      validatePassword(value);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setFlashMessages([]);
+
+    // Validate password requirements
+    if (!validatePassword(formData.new_password)) {
+      setFlashMessages([{
+        category: 'danger',
+        message: 'Please ensure your password meets all requirements.'
+      }]);
+      setLoading(false);
+      return;
+    }
 
     // Validate passwords match
     if (formData.new_password !== formData.confirm_password) {
@@ -130,35 +165,35 @@ const ResetPassword = () => {
             }}
           >
             {/* Header */}
-            <div className="flex items-center justify-center gap-3 mb-8">
-              <img src={logo} alt="Logo" className="w-10 h-10 object-contain" />
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
               <div className="flex flex-col items-start">
                 <div className="flex items-center specimen-font">
-                  <span className="text-3xl font-bold" style={{ color: cliniFinesseTheme.secondary }}>
+                  <span className="text-2xl font-bold" style={{ color: cliniFinesseTheme.secondary }}>
                     Sig
                   </span>
-                  <span className="text-3xl font-bold" style={{ color: cliniFinesseTheme.primary }}>
+                  <span className="text-2xl font-bold" style={{ color: cliniFinesseTheme.primary }}>
                     Vig
                   </span>
                 </div>
-                <span className="text-xs specimen-font-medium tracking-wide mt-1" style={{ color: cliniFinesseTheme.textSecondary }}>
+                <span className="text-xs specimen-font-medium tracking-wide" style={{ color: cliniFinesseTheme.textSecondary }}>
                   powered by <span style={{ color: cliniFinesseTheme.secondary }}>CLIN</span><span style={{ color: cliniFinesseTheme.primary }}>FINESSE</span>
                 </span>
               </div>
             </div>
 
             <h2 
-              className="text-2xl font-bold mb-2 text-center specimen-font"
+              className="text-xl font-bold mb-2 text-center specimen-font"
               style={{ color: cliniFinesseTheme.text }}
             >
               Set New Password
             </h2>
 
             <p
-              className="text-sm text-center mb-6 specimen-font-medium"
+              className="text-sm text-center mb-4 specimen-font-medium"
               style={{ color: cliniFinesseTheme.textSecondary }}
             >
-              Please enter your email and choose a new password for your account.
+              Please enter your email and choose a new password.
             </p>
 
             {/* Flash Messages */}
@@ -198,12 +233,65 @@ const ResetPassword = () => {
               </div>
             )}
             
+            {/* Password Requirements */}
+            <div className="mb-4 p-3 rounded-lg border specimen-font-medium text-sm"
+              style={{
+                backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
+                borderColor: cliniFinesseTheme.border
+              }}>
+              <h3 className="mb-2 font-semibold text-sm" style={{ color: cliniFinesseTheme.text }}>
+                Password Requirements:
+              </h3>
+              <ul className="space-y-0.5 text-xs">
+                <li className="flex items-center gap-1.5">
+                  <span style={{ color: passwordValidation.length ? cliniFinesseTheme.success : cliniFinesseTheme.error }}>
+                    {passwordValidation.length ? '✓' : '×'}
+                  </span>
+                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                    9-12 characters
+                  </span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span style={{ color: passwordValidation.uppercase ? cliniFinesseTheme.success : cliniFinesseTheme.error }}>
+                    {passwordValidation.uppercase ? '✓' : '×'}
+                  </span>
+                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                    One uppercase letter
+                  </span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span style={{ color: passwordValidation.lowercase ? cliniFinesseTheme.success : cliniFinesseTheme.error }}>
+                    {passwordValidation.lowercase ? '✓' : '×'}
+                  </span>
+                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                    One lowercase letter
+                  </span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span style={{ color: passwordValidation.number ? cliniFinesseTheme.success : cliniFinesseTheme.error }}>
+                    {passwordValidation.number ? '✓' : '×'}
+                  </span>
+                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                    One number
+                  </span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span style={{ color: passwordValidation.special ? cliniFinesseTheme.success : cliniFinesseTheme.error }}>
+                    {passwordValidation.special ? '✓' : '×'}
+                  </span>
+                  <span style={{ color: cliniFinesseTheme.textSecondary }}>
+                    One special character (!@#$%^&*(),.?":{}|&gt;&lt;)
+                  </span>
+                </li>
+              </ul>
+            </div>
+
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label 
                   htmlFor="email" 
-                  className="block text-sm specimen-font-medium mb-2"
+                  className="block text-sm specimen-font-medium mb-1.5"
                   style={{ color: cliniFinesseTheme.text }}
                 >
                   Email Address
@@ -216,13 +304,13 @@ const ResetPassword = () => {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 pl-10 rounded-lg border specimen-font-medium transition-all duration-200 focus:ring-2 focus:ring-opacity-20 focus:outline-none"
+                    className="w-full px-4 py-2 pl-9 rounded-lg border specimen-font-medium text-sm transition-all duration-200 focus:ring-2 focus:ring-opacity-20 focus:outline-none"
                     style={{
                       backgroundColor: cliniFinesseTheme.inputBackground,
                       borderColor: cliniFinesseTheme.inputBorder,
                       color: cliniFinesseTheme.text,
                     }}
-                    placeholder="Enter your email address"
+                    placeholder="Enter your email"
                   />
                   <svg 
                     className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
@@ -239,7 +327,7 @@ const ResetPassword = () => {
               <div>
                 <label 
                   htmlFor="new_password" 
-                  className="block text-sm specimen-font-medium mb-2"
+                  className="block text-sm specimen-font-medium mb-1.5"
                   style={{ color: cliniFinesseTheme.text }}
                 >
                   New Password
@@ -252,13 +340,13 @@ const ResetPassword = () => {
                     value={formData.new_password}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 pl-10 pr-10 rounded-lg border specimen-font-medium transition-all duration-200 focus:ring-2 focus:ring-opacity-20 focus:outline-none"
+                    className="w-full px-4 py-2 pl-9 pr-9 rounded-lg border specimen-font-medium text-sm transition-all duration-200 focus:ring-2 focus:ring-opacity-20 focus:outline-none"
                     style={{
                       backgroundColor: cliniFinesseTheme.inputBackground,
                       borderColor: cliniFinesseTheme.inputBorder,
                       color: cliniFinesseTheme.text,
                     }}
-                    placeholder="Enter your new password"
+                    placeholder="Enter new password"
                   />
                   <svg 
                     className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
@@ -272,7 +360,7 @@ const ResetPassword = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-md transition-colors duration-200 hover:bg-black hover:bg-opacity-5"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded-md transition-colors duration-200 hover:bg-black hover:bg-opacity-5"
                     style={{ color: cliniFinesseTheme.textSecondary }}
                   >
                     {showPassword ? (
@@ -292,10 +380,10 @@ const ResetPassword = () => {
               <div>
                 <label 
                   htmlFor="confirm_password" 
-                  className="block text-sm specimen-font-medium mb-2"
+                  className="block text-sm specimen-font-medium mb-1.5"
                   style={{ color: cliniFinesseTheme.text }}
                 >
-                  Confirm New Password
+                  Confirm Password
                 </label>
                 <div className="relative">
                   <input
@@ -305,13 +393,13 @@ const ResetPassword = () => {
                     value={formData.confirm_password}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 pl-10 pr-10 rounded-lg border specimen-font-medium transition-all duration-200 focus:ring-2 focus:ring-opacity-20 focus:outline-none"
+                    className="w-full px-4 py-2 pl-9 pr-9 rounded-lg border specimen-font-medium text-sm transition-all duration-200 focus:ring-2 focus:ring-opacity-20 focus:outline-none"
                     style={{
                       backgroundColor: cliniFinesseTheme.inputBackground,
                       borderColor: cliniFinesseTheme.inputBorder,
                       color: cliniFinesseTheme.text,
                     }}
-                    placeholder="Confirm your new password"
+                    placeholder="Confirm new password"
                   />
                   <svg 
                     className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
@@ -325,7 +413,7 @@ const ResetPassword = () => {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-md transition-colors duration-200 hover:bg-black hover:bg-opacity-5"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded-md transition-colors duration-200 hover:bg-black hover:bg-opacity-5"
                     style={{ color: cliniFinesseTheme.textSecondary }}
                   >
                     {showConfirmPassword ? (
@@ -342,16 +430,14 @@ const ResetPassword = () => {
                 </div>
               </div>
 
-              <motion.button
+              <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-lg text-sm specimen-font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed text-white"
+                className="w-full py-2 px-4 rounded-md text-sm specimen-font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed text-white mt-2"
                 style={{
                   backgroundColor: loading ? cliniFinesseTheme.textSecondary : cliniFinesseTheme.primary,
                   boxShadow: loading ? 'none' : `0 4px 12px ${cliniFinesseTheme.primary}20`
                 }}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
               >
                 {loading ? (
                   <div className="flex items-center justify-center gap-2">
@@ -364,22 +450,6 @@ const ResetPassword = () => {
                 ) : (
                   'Reset Password'
                 )}
-              </motion.button>
-
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="w-full mt-4 py-2 px-4 rounded-lg text-sm specimen-font-medium transition-all duration-200 border flex items-center justify-center gap-2"
-                style={{
-                  backgroundColor: 'transparent',
-                  borderColor: cliniFinesseTheme.border,
-                  color: cliniFinesseTheme.text
-                }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Login
               </button>
             </form>
 
