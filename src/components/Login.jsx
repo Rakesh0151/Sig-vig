@@ -20,14 +20,14 @@ const Login = () => {
   const { login } = useAuth();
 
   const { data, error, loading, refetch } = useApi({
-    url: "https://signal-app-748522437054.us-central1.run.app/login",
+    url: "https://signal-app-748522437054.us-central1.run.app/login",  
     method: "post",
     body: formData,
     headers: { "Content-Type": "application/json" },
     enabled: false,
     queryKey: ["login", formData.email],
   });
-
+// just comment
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -45,24 +45,22 @@ const Login = () => {
     setFlashMessages([]);
 
     try {
-      await refetch();
-
-      if (data) {
-        localStorage.setItem("Access-Token", data.token);
-        console.log(data);
-
+      const result = await refetch();
+      
+      if (result.data) {
+        localStorage.setItem("Access-Token", result.data.token);
+        
         login({
-          username: data.user.username,
-          token: data.token,
-          userRole: data.user.user_role,
-          userId: data.user.id
+          username: result.data.user.username,
+          token: result.data.token,
+          userRole: result.data.user.user_role,
+          userId: result.data.user.id
         });
 
         setFlashMessages([{ category: 'success', message: 'Login successful!' }]);
         setTimeout(() => navigate("/"), 1500);
-      }
-      if (error) {
-        console.error("Login failed:", error);
+      } else if (result.error) {
+        console.error("Login failed:", result.error);
         setFlashMessages([{ category: 'danger', message: 'Login failed. Please check your credentials.' }]);
       }
     } catch (err) {
