@@ -5,7 +5,7 @@ export const API_CONFIG = {
     USERS: '/admin/users',
     CREATE_USER: '/admin/createuser',
     UPDATE_USER: (userId) => `/admin/users/${userId}`,
-    UNBLOCK_USER: (userId) => `/admin/users/${userId}/unlock`,
+    UNBLOCK_USER: (userId) => `/admin/users/${userId}/unblock`,
     DELETE_USER: (userId) => `/admin/users/${userId}`
   }
 };
