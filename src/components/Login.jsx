@@ -45,27 +45,62 @@ const Login = () => {
     setFlashMessages([]);
 
     try {
-      const result = await refetch();
-      
-      if (result.data) {
-        localStorage.setItem("Access-Token", result.data.token);
+      const response = await fetch('https://signal-app-748522437054.us-central1.run.app/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("Access-Token", data.token);
         
         login({
-          username: result.data.user.username,
-          token: result.data.token,
-          userRole: result.data.user.user_role,
-          userId: result.data.user.id
+          username: data.user.username,
+          token: data.token,
+          userRole: data.user.user_role,
+          userId: data.user.id
         });
 
         setFlashMessages([{ category: 'success', message: 'Login successful!' }]);
         setTimeout(() => navigate("/"), 1500);
-      } else if (result.error) {
-        console.error("Login failed:", result.error);
-        setFlashMessages([{ category: 'danger', message: 'Login failed. Please check your credentials.' }]);
+      } else {
+        // Handle specific error status codes
+        switch (response.status) {
+          case 423:
+            setFlashMessages([{
+              category: 'danger',
+              message: 'Your account has been temporarily blocked due to multiple failed attempts. Please contact administrator.'
+            }]);
+            break;
+          case 403:
+            setFlashMessages([{
+              category: 'danger',
+              message: 'Your account has been blocked. Please contact administrator.'
+            }]);
+            break;
+          case 401:
+            setFlashMessages([{
+              category: 'danger',
+              message: 'Invalid email or password.'
+            }]);
+            break;
+          default:
+            setFlashMessages([{
+              category: 'danger',
+              message: data.message || 'An error occurred during login. Please try again.'
+            }]);
+        }
       }
     } catch (err) {
       console.error("Error in login:", err);
-      setFlashMessages([{ category: 'danger', message: 'Login failed. Please check your credentials.' }]);
+      setFlashMessages([{
+        category: 'danger',
+        message: 'Network error. Please check your connection.'
+      }]);
     } finally {
       setIsSubmitting(false);
     }
